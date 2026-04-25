@@ -3,15 +3,23 @@ import axios from "axios";
 import AgentTracker from "./components/AgentTracker";
 import ReportDisplay from "./components/ReportDisplay";
 
-const API_URL = "https://your-ngrok-url-here.ngrok-free.app";
+const API_URL = "http://localhost:8000";
+
 const AGENT_ORDER = ["planner", "searcher", "reader", "fact_checker", "writer"];
 const AGENT_TIMES = {
-  planner: 4000,
-  searcher: 18000,
+  planner: 5000,
+  searcher: 20000,
   reader: 35000,
-  fact_checker: 22000,
-  writer: 18000,
+  fact_checker: 20000,
+  writer: 15000,
 };
+
+const SUGGESTIONS = [
+  "Agentic AI in 2025",
+  "Quantum computing breakthroughs",
+  "Future of fintech in India",
+  "Large language model trends",
+];
 
 export default function App() {
   const [dark, setDark] = useState(true);
@@ -27,7 +35,7 @@ export default function App() {
   const [startTime, setStartTime] = useState(null);
 
   useEffect(() => {
-    document.documentElement.className = dark ? "dark" : "";
+    document.documentElement.classList.toggle("dark", dark);
   }, [dark]);
 
   useEffect(() => {
@@ -57,20 +65,18 @@ export default function App() {
     setCurrentAgent(null);
     setStartTime(Date.now());
     setElapsed(0);
-
     simulateAgentProgress();
-
     try {
-      const response = await axios.post(`${API_URL}/research`, {
+      const res = await axios.post(`${API_URL}/research`, {
         topic: topic.trim(),
         depth,
       });
-      setReport(response.data.report);
-      setSourcesCount(response.data.sources_count);
+      setReport(res.data.report);
+      setSourcesCount(res.data.sources_count);
       setCurrentAgent(null);
       setCompletedAgents(AGENT_ORDER);
     } catch (err) {
-      setError("Make sure your Colab is running and try again.");
+      setError("Could not connect to backend. Make sure uvicorn is running on port 8000.");
       setCurrentAgent(null);
     } finally {
       setLoading(false);
@@ -87,78 +93,141 @@ export default function App() {
     setStartTime(null);
   };
 
-  const suggestions = [
-    "Agentic AI in 2025",
-    "Quantum computing breakthroughs",
-    "Future of fintech in India",
-  ];
+  const bg = dark ? "#0a0a0a" : "#f5f5f7";
+  const surface = dark ? "#111111" : "#ffffff";
+  const border = dark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.08)";
+  const textPrimary = dark ? "rgba(255,255,255,0.88)" : "rgba(0,0,0,0.85)";
+  const textSecondary = dark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.4)";
+  const inputBg = dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)";
 
   return (
-    <div className={`min-h-screen transition-colors duration-300 ${dark ? "bg-zinc-950 text-white" : "bg-gray-50 text-zinc-900"}`}>
-      <div className="max-w-6xl mx-auto px-4 py-6 flex flex-col gap-4" style={{ height: "100vh" }}>
+    <div style={{
+      minHeight: "100vh", backgroundColor: bg,
+      transition: "background-color 0.3s, color 0.3s",
+      fontFamily: "Inter, -apple-system, BlinkMacSystemFont, system-ui, sans-serif",
+    }}>
+      <div style={{
+        maxWidth: "1100px", margin: "0 auto",
+        padding: "20px 20px",
+        height: "100vh", display: "flex", flexDirection: "column", gap: "14px",
+      }}>
 
-        {/* Topbar */}
-        <div className={`flex items-center justify-between px-5 py-3 rounded-2xl border ${dark ? "bg-zinc-900 border-zinc-800" : "bg-white border-gray-200"}`}>
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl flex items-center justify-center text-white text-sm font-medium" style={{ backgroundColor: "#7F77DD" }}>
-              A
+        {/* ── Topbar ── */}
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "12px 18px", borderRadius: "16px",
+          backgroundColor: surface, border: `1px solid ${border}`,
+          flexShrink: 0,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <div style={{
+              width: "32px", height: "32px", borderRadius: "10px",
+              background: "linear-gradient(135deg, #7C6FE0, #9B6FE0)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <span style={{ color: "white", fontSize: "14px", fontWeight: 600 }}>A</span>
             </div>
             <div>
-              <p className={`text-sm font-medium ${dark ? "text-zinc-100" : "text-zinc-900"}`}>Agent Researcher</p>
-              <p className={`text-xs ${dark ? "text-zinc-500" : "text-zinc-400"}`}>Multi-agent AI research assistant</p>
+              <p style={{ fontSize: "14px", fontWeight: 600, color: textPrimary, letterSpacing: "-0.01em" }}>
+                Agent Researcher
+              </p>
+              <p style={{ fontSize: "11px", color: textSecondary, marginTop: "1px" }}>
+                Multi-agent AI · Powered by Groq + LangGraph
+              </p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <span className={`text-xs ${dark ? "text-zinc-500" : "text-zinc-400"}`}>{dark ? "Dark" : "Light"}</span>
+
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <span style={{ fontSize: "11px", color: textSecondary }}>
+              {dark ? "Dark" : "Light"}
+            </span>
             <button
               onClick={() => setDark(!dark)}
-              className="relative w-12 h-6 rounded-full border transition-colors duration-300"
               style={{
-                backgroundColor: dark ? "#7F77DD" : "#e5e7eb",
-                borderColor: dark ? "#7F77DD" : "#d1d5db",
+                position: "relative", width: "44px", height: "24px",
+                borderRadius: "12px", border: `1px solid ${dark ? "#7C6FE0" : "#d1d5db"}`,
+                backgroundColor: dark ? "#7C6FE0" : "#e5e7eb",
+                cursor: "pointer", transition: "all 0.3s",
+                flexShrink: 0,
               }}
             >
-              <span
-                className="absolute top-0.5 w-5 h-5 rounded-full bg-white flex items-center justify-center text-xs transition-all duration-300"
-                style={{ left: dark ? "24px" : "2px" }}
-              >
+              <span style={{
+                position: "absolute", top: "2px",
+                left: dark ? "21px" : "2px",
+                width: "18px", height: "18px",
+                borderRadius: "50%", backgroundColor: "white",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: "10px", transition: "left 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)",
+              }}>
                 {dark ? "🌙" : "☀️"}
               </span>
             </button>
+
+            <div style={{
+              width: "8px", height: "8px", borderRadius: "50%",
+              backgroundColor: "#22c55e",
+              boxShadow: "0 0 6px rgba(34,197,94,0.6)",
+            }} title="Backend connected" />
           </div>
         </div>
 
-        {/* Main */}
-        <div className="flex gap-4 flex-1" style={{ minHeight: 0 }}>
+        {/* ── Main layout ── */}
+        <div style={{ display: "flex", gap: "14px", flex: 1, minHeight: 0 }}>
 
-          {/* Sidebar */}
-          <div className={`flex flex-col gap-4 p-5 rounded-2xl border ${dark ? "bg-zinc-900 border-zinc-800" : "bg-white border-gray-200"}`} style={{ width: "280px", flexShrink: 0 }}>
+          {/* ── Sidebar ── */}
+          <div style={{
+            width: "268px", flexShrink: 0,
+            display: "flex", flexDirection: "column", gap: "16px",
+            padding: "18px", borderRadius: "16px",
+            backgroundColor: surface, border: `1px solid ${border}`,
+            overflow: "hidden",
+          }}>
 
+            {/* Topic */}
             <div>
-              <p className={`text-xs font-medium uppercase tracking-wider mb-2 ${dark ? "text-zinc-500" : "text-zinc-400"}`}>Research topic</p>
+              <p style={{ fontSize: "10px", fontWeight: 600, color: textSecondary, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "8px" }}>
+                Research topic
+              </p>
               <textarea
                 value={topic}
                 onChange={(e) => setTopic(e.target.value)}
                 placeholder="e.g. State of agentic AI in 2025..."
                 disabled={loading}
                 rows={4}
-                style={{ width: "100%", resize: "none", outline: "none" }}
-                className={`text-sm rounded-xl border px-3 py-2.5 transition-colors ${dark ? "bg-zinc-800 border-zinc-700 text-zinc-100 placeholder-zinc-600" : "bg-gray-50 border-gray-200 text-zinc-900"} ${loading ? "opacity-50" : ""}`}
+                style={{
+                  width: "100%", resize: "none", outline: "none",
+                  fontSize: "13px", lineHeight: 1.6,
+                  padding: "10px 12px", borderRadius: "10px",
+                  border: `1px solid ${dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
+                  backgroundColor: inputBg,
+                  color: textPrimary,
+                  transition: "border-color 0.2s",
+                  fontFamily: "inherit",
+                  opacity: loading ? 0.5 : 1,
+                }}
+                onFocus={e => e.target.style.borderColor = "#7C6FE0"}
+                onBlur={e => e.target.style.borderColor = dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}
               />
             </div>
 
+            {/* Depth */}
             <div>
-              <p className={`text-xs font-medium uppercase tracking-wider mb-2 ${dark ? "text-zinc-500" : "text-zinc-400"}`}>Depth</p>
-              <div className="flex gap-2">
+              <p style={{ fontSize: "10px", fontWeight: 600, color: textSecondary, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "8px" }}>
+                Depth
+              </p>
+              <div style={{ display: "flex", gap: "6px" }}>
                 {["quick", "standard", "deep"].map((d) => (
                   <button
                     key={d}
                     onClick={() => !loading && setDepth(d)}
-                    className="flex-1 py-1.5 text-xs rounded-lg border capitalize transition-all"
                     style={{
-                      backgroundColor: depth === d ? "#7F77DD" : "transparent",
-                      borderColor: depth === d ? "#7F77DD" : dark ? "#3f3f46" : "#e5e7eb",
-                      color: depth === d ? "white" : dark ? "#71717a" : "#9ca3af",
+                      flex: 1, padding: "6px 0", fontSize: "11px", fontWeight: 500,
+                      borderRadius: "8px", border: `1px solid ${depth === d ? "#7C6FE0" : border}`,
+                      backgroundColor: depth === d ? "#7C6FE0" : "transparent",
+                      color: depth === d ? "white" : textSecondary,
+                      cursor: loading ? "not-allowed" : "pointer",
+                      transition: "all 0.2s", textTransform: "capitalize",
+                      fontFamily: "inherit",
                     }}
                   >
                     {d}
@@ -167,62 +236,116 @@ export default function App() {
               </div>
             </div>
 
+            {/* Run button */}
             <button
               onClick={report ? handleReset : handleResearch}
               disabled={loading || (!topic.trim() && !report)}
-              className="w-full py-2.5 rounded-xl text-sm font-medium transition-all text-white"
               style={{
-                backgroundColor: report ? (dark ? "#27272a" : "#f3f4f6") : "#7F77DD",
-                color: report ? (dark ? "#d4d4d8" : "#52525b") : "white",
-                opacity: loading || (!topic.trim() && !report) ? 0.6 : 1,
-                cursor: loading ? "not-allowed" : "pointer",
+                width: "100%", padding: "10px", fontSize: "13px", fontWeight: 600,
+                borderRadius: "10px", border: "none", cursor: "pointer",
+                fontFamily: "inherit", letterSpacing: "-0.01em",
+                background: report
+                  ? dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)"
+                  : loading
+                  ? "rgba(124,111,224,0.6)"
+                  : "linear-gradient(135deg, #7C6FE0, #9B6FE0)",
+                color: report ? textSecondary : "white",
+                opacity: (!topic.trim() && !report && !loading) ? 0.4 : 1,
+                transition: "all 0.2s",
+                boxShadow: (!report && !loading) ? "0 4px 14px rgba(124,111,224,0.3)" : "none",
               }}
             >
-              {loading ? `Researching... ${elapsed}s` : report ? "New research" : "Run research"}
+              {loading
+                ? `Researching... ${elapsed}s`
+                : report
+                ? "↺ New research"
+                : "Run research →"}
             </button>
 
-            <div style={{ height: "1px", backgroundColor: dark ? "#27272a" : "#f3f4f6" }} />
+            {/* Divider */}
+            <div style={{ height: "1px", backgroundColor: border }} />
 
-            <div>
-              <p className={`text-xs font-medium uppercase tracking-wider mb-2 ${dark ? "text-zinc-500" : "text-zinc-400"}`}>Agent activity</p>
-              <AgentTracker currentAgent={currentAgent} completedAgents={completedAgents} dark={dark} />
+            {/* Agent tracker */}
+            <div style={{ flex: 1 }}>
+              <p style={{ fontSize: "10px", fontWeight: 600, color: textSecondary, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "8px" }}>
+                Agent pipeline
+              </p>
+              <AgentTracker
+                currentAgent={currentAgent}
+                completedAgents={completedAgents}
+                dark={dark}
+              />
             </div>
 
+            {/* Stats */}
             {report && (
-              <div className="grid grid-cols-2 gap-2 pt-2" style={{ borderTop: `1px solid ${dark ? "#27272a" : "#f3f4f6"}` }}>
-                <div className={`rounded-xl p-3 ${dark ? "bg-zinc-800" : "bg-gray-50"}`}>
-                  <p className={`text-lg font-medium ${dark ? "text-zinc-100" : "text-zinc-900"}`}>{sourcesCount}</p>
-                  <p className={`text-xs ${dark ? "text-zinc-500" : "text-zinc-400"}`}>Sources</p>
-                </div>
-                <div className={`rounded-xl p-3 ${dark ? "bg-zinc-800" : "bg-gray-50"}`}>
-                  <p className={`text-lg font-medium ${dark ? "text-zinc-100" : "text-zinc-900"}`}>{elapsed}s</p>
-                  <p className={`text-xs ${dark ? "text-zinc-500" : "text-zinc-400"}`}>Time taken</p>
-                </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                {[
+                  { value: sourcesCount, label: "Sources" },
+                  { value: `${elapsed}s`, label: "Duration" },
+                ].map((stat) => (
+                  <div key={stat.label} style={{
+                    padding: "10px 12px", borderRadius: "10px",
+                    backgroundColor: inputBg,
+                    border: `1px solid ${border}`,
+                  }}>
+                    <p style={{ fontSize: "18px", fontWeight: 600, color: textPrimary, letterSpacing: "-0.02em" }}>
+                      {stat.value}
+                    </p>
+                    <p style={{ fontSize: "10px", color: textSecondary, marginTop: "2px" }}>
+                      {stat.label}
+                    </p>
+                  </div>
+                ))}
               </div>
             )}
           </div>
 
-          {/* Right panel */}
-          <div className={`flex-1 rounded-2xl border p-5 ${dark ? "bg-zinc-900 border-zinc-800" : "bg-white border-gray-200"}`} style={{ minWidth: 0, overflow: "hidden" }}>
+          {/* ── Right panel ── */}
+          <div style={{
+            flex: 1, minWidth: 0, borderRadius: "16px",
+            backgroundColor: surface, border: `1px solid ${border}`,
+            padding: "20px", overflow: "hidden", display: "flex",
+            flexDirection: "column",
+          }}>
 
+            {/* Empty state */}
             {!loading && !report && !error && (
-              <div className="h-full flex flex-col items-center justify-center gap-4">
-                <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl" style={{ backgroundColor: "rgba(127,119,221,0.1)" }}>
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "20px" }}>
+                <div style={{
+                  width: "60px", height: "60px", borderRadius: "18px",
+                  background: "linear-gradient(135deg, rgba(124,111,224,0.15), rgba(155,111,224,0.15))",
+                  display: "flex", alignItems: "center", justifyContent: "center", fontSize: "26px",
+                }}>
                   🔍
                 </div>
-                <div className="text-center">
-                  <p className={`text-sm font-medium ${dark ? "text-zinc-300" : "text-zinc-700"}`}>Ready to research</p>
-                  <p className={`text-xs mt-1 ${dark ? "text-zinc-600" : "text-zinc-400"}`}>Enter a topic and hit Run research</p>
+                <div style={{ textAlign: "center" }}>
+                  <p style={{ fontSize: "15px", fontWeight: 600, color: textPrimary, letterSpacing: "-0.01em" }}>
+                    Ready to research
+                  </p>
+                  <p style={{ fontSize: "12px", color: textSecondary, marginTop: "4px" }}>
+                    Enter any topic and your 5 AI agents will get to work
+                  </p>
                 </div>
-                <div className="flex flex-wrap gap-2 justify-center mt-2">
-                  {suggestions.map((s) => (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", justifyContent: "center", maxWidth: "400px" }}>
+                  {SUGGESTIONS.map((s) => (
                     <button
                       key={s}
                       onClick={() => setTopic(s)}
-                      className="text-xs px-3 py-1.5 rounded-lg border transition-all"
                       style={{
-                        borderColor: dark ? "#3f3f46" : "#e5e7eb",
-                        color: dark ? "#71717a" : "#9ca3af",
+                        fontSize: "12px", padding: "6px 12px",
+                        borderRadius: "20px", cursor: "pointer",
+                        border: `1px solid ${border}`,
+                        backgroundColor: "transparent", color: textSecondary,
+                        fontFamily: "inherit", transition: "all 0.2s",
+                      }}
+                      onMouseEnter={e => {
+                        e.target.style.borderColor = "#7C6FE0";
+                        e.target.style.color = "#7C6FE0";
+                      }}
+                      onMouseLeave={e => {
+                        e.target.style.borderColor = border;
+                        e.target.style.color = textSecondary;
                       }}
                     >
                       {s}
@@ -232,30 +355,83 @@ export default function App() {
               </div>
             )}
 
+            {/* Loading state */}
             {loading && !report && (
-              <div className="h-full flex flex-col items-center justify-center gap-6">
-                <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ backgroundColor: "rgba(139,92,246,0.1)" }}>
-                  <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: "#7F77DD", borderTopColor: "transparent" }} />
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "20px" }}>
+                <div style={{
+                  width: "60px", height: "60px", borderRadius: "18px",
+                  backgroundColor: "rgba(124,111,224,0.1)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}>
+                  <div
+                    className="spin"
+                    style={{
+                      width: "26px", height: "26px", borderRadius: "50%",
+                      border: "2.5px solid rgba(124,111,224,0.2)",
+                      borderTopColor: "#7C6FE0",
+                    }}
+                  />
                 </div>
-                <div className="text-center">
-                  <p className={`text-sm font-medium ${dark ? "text-zinc-300" : "text-zinc-700"}`}>Agents are working...</p>
-                  <p className={`text-xs mt-1 ${dark ? "text-zinc-600" : "text-zinc-400"}`}>This takes 1-2 minutes. Watch agent activity on the left.</p>
+                <div style={{ textAlign: "center" }}>
+                  <p style={{ fontSize: "15px", fontWeight: 600, color: textPrimary, letterSpacing: "-0.01em" }}>
+                    Agents are working
+                  </p>
+                  <p style={{ fontSize: "12px", color: textSecondary, marginTop: "4px" }}>
+                    Searching, reading and verifying sources — this takes 1–2 min
+                  </p>
+                </div>
+                <div style={{
+                  padding: "10px 18px", borderRadius: "20px",
+                  backgroundColor: "rgba(124,111,224,0.08)",
+                  border: "1px solid rgba(124,111,224,0.15)",
+                }}>
+                  <p style={{ fontSize: "12px", color: "#a78bfa", fontWeight: 500 }}>
+                    {elapsed}s elapsed
+                  </p>
                 </div>
               </div>
             )}
 
+            {/* Error state */}
             {error && (
-              <div className="h-full flex flex-col items-center justify-center gap-4">
-                <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl" style={{ backgroundColor: "rgba(239,68,68,0.1)" }}>⚠️</div>
-                <div className="text-center">
-                  <p className="text-sm font-medium text-red-400">Something went wrong</p>
-                  <p className={`text-xs mt-1 max-w-xs ${dark ? "text-zinc-500" : "text-zinc-400"}`}>{error}</p>
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "16px" }}>
+                <div style={{
+                  width: "60px", height: "60px", borderRadius: "18px",
+                  backgroundColor: "rgba(239,68,68,0.08)",
+                  display: "flex", alignItems: "center", justifyContent: "center", fontSize: "26px",
+                }}>
+                  ⚠️
                 </div>
-                <button onClick={handleReset} className="text-xs px-4 py-2 rounded-lg text-white" style={{ backgroundColor: "#7F77DD" }}>Try again</button>
+                <div style={{ textAlign: "center" }}>
+                  <p style={{ fontSize: "14px", fontWeight: 600, color: "#f87171" }}>
+                    Something went wrong
+                  </p>
+                  <p style={{ fontSize: "12px", color: textSecondary, marginTop: "4px", maxWidth: "320px" }}>
+                    {error}
+                  </p>
+                </div>
+                <button
+                  onClick={handleReset}
+                  style={{
+                    fontSize: "12px", fontWeight: 600, padding: "8px 18px",
+                    borderRadius: "8px", border: "none", cursor: "pointer",
+                    backgroundColor: "#7C6FE0", color: "white", fontFamily: "inherit",
+                  }}
+                >
+                  Try again
+                </button>
               </div>
             )}
 
-            {report && <ReportDisplay report={report} sourcesCount={sourcesCount} dark={dark} />}
+            {/* Report */}
+            {report && (
+              <ReportDisplay
+                report={report}
+                sourcesCount={sourcesCount}
+                elapsed={elapsed}
+                dark={dark}
+              />
+            )}
           </div>
         </div>
       </div>
