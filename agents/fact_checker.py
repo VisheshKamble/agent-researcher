@@ -8,9 +8,21 @@ llm = ChatGroq(
 )
 
 def fact_checker_agent(state: dict) -> dict:
+    # Limit the total prompt size to avoid LLM token overflow
+    MAX_PROMPT_CHARS = 9000
     all_content = ""
+    total_chars = 0
     for i, source in enumerate(state['extracted_content'], 1):
-        all_content += f"\nSource {i} ({source['url']}):\n{source['key_points']}\n"
+        key_points = source['key_points']
+        # Truncate key_points if too long
+        if len(key_points) > 1000:
+            key_points = key_points[:1000] + '... [truncated]'
+        entry = f"\nSource {i} ({source['url']}):\n{key_points}\n"
+        if total_chars + len(entry) > MAX_PROMPT_CHARS:
+            all_content += f"\n... [truncated: more sources omitted]"
+            break
+        all_content += entry
+        total_chars += len(entry)
 
     prompt = f"""
     You are a fact checker reviewing research about: {state['topic']}
