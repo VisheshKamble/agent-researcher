@@ -58,3 +58,13 @@ async def stream_research(topic: str, depth: str = "standard"):
             extracted_content=[],
             verified_facts=[],
             final_report="",
+        )
+
+        async for event in research_app.stream(initial_state):
+            yield {"type": "event", "data": event}
+
+    return EventSourceResponse(event_generator())
+
+@app.get("/healthz")
+def health_check():
+    return {"status": "ok"}
