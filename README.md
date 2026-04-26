@@ -116,7 +116,7 @@ Or with Docker Compose:
 ## Live Demo
 
 - **Backend deployed on Render:** [https://agent-researcher-8sca.onrender.com](https://agent-researcher-8sca.onrender.com)
-- **Frontend deployed on Netlify:** [https://agentresearcher.netlify.app](https://agentresearcher.netlify.app)
+- **Frontend deployed on Netlify:** [https://agentresearcherai.netlify.app](https://agentresearcherai.netlify.app)
 
 ## License
 
