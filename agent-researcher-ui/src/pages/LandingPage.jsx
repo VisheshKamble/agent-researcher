@@ -16,7 +16,7 @@ const FEATURES = [
   { num: "03", title: "Deep Content Reading", tag: "Reader", desc: "Visits each source URL, scrapes full content, and extracts only the facts relevant to your topic.", accent: "#0891b2" },
   { num: "04", title: "Cross-source Verification", tag: "Fact Checker", desc: "Validates each claim across multiple sources — flagging unverified facts before they reach the report.", accent: "#059669" },
   { num: "05", title: "Structured Report Writing", tag: "Writer", desc: "Synthesises all verified facts into a professional, sectioned report with citations — ready to export.", accent: "#d97706" },
-  { num: "06", title: "Dark & Light Mode", tag: "UI/UX", desc: "A clean, minimal interface inspired by Apple and Linear — built for long research sessions.", accent: "#7c3aed" },
+  { num: "06", title: "Export to PDF", tag: "Export", desc: "One-click export of any generated report to a beautifully formatted PDF — with cover page, citations, and metadata baked in.", accent: "#e11d48" },
 ];
 
 const PIPELINE = [
@@ -64,9 +64,13 @@ const Ico = {
       <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
     </svg>
   ),
-  moon: (c="currentColor",s=20) => (
+  // PDF / download icon replacing moon
+  pdf: (c="currentColor",s=20) => (
     <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
+      <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5Z"/>
+      <polyline points="14 2 14 8 20 8"/>
+      <path d="M12 18v-6"/>
+      <path d="m9 15 3 3 3-3"/>
     </svg>
   ),
   check: (c="currentColor",s=14) => (
@@ -76,7 +80,8 @@ const Ico = {
   ),
 };
 
-const FEAT_ICONS = ["brain","search","book","shield","pen","moon"];
+// icon key per feature index (replaced "moon" at index 5 with "pdf")
+const FEAT_ICONS = ["brain","search","book","shield","pen","pdf"];
 
 export default function LandingPage() {
   const navigate = useNavigate();
@@ -119,10 +124,15 @@ export default function LandingPage() {
         .tc{padding:7px 16px;border-radius:100px;font-size:12.5px;font-weight:500;background:#fff;color:#52525b;border:1.5px solid #e5e5e5;cursor:pointer;font-family:inherit;transition:all .2s}
         .tc:hover{border-color:#7c3aed;color:#7c3aed;background:#faf5ff}
 
+        /* Feature cards — first 4 are standard 1-col, last 2 go side-by-side */
         .fc{background:#fff;border:1.5px solid #ebebeb;border-radius:20px;padding:26px;position:relative;overflow:hidden;transition:border-color .25s,transform .25s,box-shadow .25s}
         .fc:hover{border-color:#c4b5fd;transform:translateY(-4px);box-shadow:0 18px 50px rgba(124,58,237,.09)}
         .fc::after{content:'';position:absolute;inset:0;opacity:0;background:radial-gradient(ellipse at top left,rgba(124,58,237,.05) 0%,transparent 70%);transition:opacity .3s}
         .fc:hover::after{opacity:1}
+
+        /* PDF card gets a rose tint on hover instead */
+        .fc-pdf:hover{border-color:#fda4af !important;box-shadow:0 18px 50px rgba(225,29,72,.08) !important}
+        .fc-pdf::after{background:radial-gradient(ellipse at top left,rgba(225,29,72,.04) 0%,transparent 70%) !important}
 
         .sc{background:#fff;border:1.5px solid #ebebeb;border-radius:20px;padding:26px;transition:border-color .25s,box-shadow .25s}
         .sc:hover{border-color:#c4b5fd;box-shadow:0 8px 28px rgba(124,58,237,.07)}
@@ -142,6 +152,10 @@ export default function LandingPage() {
         .li:last-child{border-bottom:none}
 
         .ms{box-shadow:0 4px 6px rgba(0,0,0,.04),0 20px 48px rgba(0,0,0,.09),0 60px 80px rgba(0,0,0,.05)}
+
+        /* PDF badge pulse */
+        @keyframes badgePop{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
+        .pdf-badge{animation:badgePop 3s ease-in-out infinite}
       `}</style>
 
       {/* ── Navbar ── */}
@@ -274,6 +288,17 @@ export default function LandingPage() {
                       </div>
                     ))}
                   </div>
+                  {/* PDF export preview badge */}
+                  <div style={{ marginTop:"12px", display:"flex", alignItems:"center", justifyContent:"flex-end" }}>
+                    <div className="pdf-badge" style={{ display:"inline-flex", alignItems:"center", gap:"6px", padding:"6px 13px", borderRadius:"100px", background:"#fff1f2", border:"1.5px solid #fecdd3" }}>
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#e11d48" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5Z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                        <path d="M12 18v-6"/><path d="m9 15 3 3 3-3"/>
+                      </svg>
+                      <span style={{ fontSize:"10px", fontWeight:700, color:"#e11d48" }}>Export PDF</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -296,6 +321,8 @@ export default function LandingPage() {
       {/* ── FEATURES ── */}
       <section id="features" style={{ padding:"110px 52px", maxWidth:"1240px", margin:"0 auto" }}>
         <div style={{ display:"grid", gridTemplateColumns:"310px 1fr", gap:"80px", alignItems:"start" }}>
+
+          {/* Sticky left */}
           <div style={{ position:"sticky", top:"88px" }}>
             <span className="ey">Core Capabilities</span>
             <h2 style={{ fontSize:"clamp(34px,3.8vw,50px)", fontWeight:800, letterSpacing:"-0.042em", lineHeight:1.08, color:"#0a0a0a", marginBottom:"18px" }}>
@@ -307,9 +334,10 @@ export default function LandingPage() {
             <button className="bd" onClick={()=>navigate("/app")}>Start researching →</button>
           </div>
 
+          {/* Feature grid — all 6 cards identical size, 2-column */}
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"14px" }}>
-            {FEATURES.map((f,i)=>(
-              <div key={f.title} className="fc" style={{ gridColumn:i===5?"1 / -1":"auto" }}>
+            {FEATURES.map((f, i) => (
+              <div key={f.title} className="fc">
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:"18px" }}>
                   <div style={{ width:"44px", height:"44px", borderRadius:"13px", background:f.accent+"14", border:`1px solid ${f.accent}22`, display:"flex", alignItems:"center", justifyContent:"center" }}>
                     {Ico[FEAT_ICONS[i]](f.accent, 20)}

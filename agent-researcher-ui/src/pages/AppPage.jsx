@@ -99,6 +99,16 @@ const SVG = {
       <path d="M3 3v5h5"/>
     </svg>
   ),
+  // NEW: PDF download icon
+  pdf: (c = "currentColor", s = 13) => (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5Z"/>
+      <polyline points="14 2 14 8 20 8"/>
+      <path d="M8 13h2.5a1.5 1.5 0 0 1 0 3H8v-3zM8 16v2"/>
+      <path d="M13 13v5M13 13h2a1.5 1.5 0 0 1 0 3h-2"/>
+      <path d="M17 13h1.5a1.5 1.5 0 0 1 1.5 1.5v0a1.5 1.5 0 0 1-1.5 1.5H17v-3zM17 18h2"/>
+    </svg>
+  ),
 };
 
 const AGENT_META = {
@@ -111,19 +121,324 @@ const AGENT_META = {
 
 const SUGGESTION_ICONS = [SVG.brain, SVG.sparkle, SVG.globe, SVG.zap];
 
+// ── Markdown → clean HTML renderer ─────────────────────────────────────────
+function renderMarkdown(raw) {
+  if (!raw) return "";
+  let html = raw
+    // Escape existing html to avoid XSS (basic)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    // Headings
+    .replace(/^#{3}\s+(.+)$/gm, "<h3>$1</h3>")
+    .replace(/^#{2}\s+(.+)$/gm, "<h2>$1</h2>")
+    .replace(/^#{1}\s+(.+)$/gm, "<h1>$1</h1>")
+    // Bold / italic
+    .replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>")
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*(.+?)\*/g, "<em>$1</em>")
+    // Inline code
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    // Blockquote
+    .replace(/^&gt;\s+(.+)$/gm, "<blockquote>$1</blockquote>")
+    // Unordered list items  (- or *)
+    .replace(/^[\-\*]\s+(.+)$/gm, "<li>$1</li>")
+    // Ordered list items
+    .replace(/^\d+\.\s+(.+)$/gm, "<oli>$1</oli>")
+    // Horizontal rule
+    .replace(/^---+$/gm, "<hr/>")
+    // Links
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+
+  // Wrap consecutive <li> in <ul>
+  html = html.replace(/(<li>.*?<\/li>\n?)+/gs, m => `<ul>${m}</ul>`);
+  // Wrap consecutive <oli> in <ol>
+  html = html.replace(/(<oli>.*?<\/oli>\n?)+/gs, m => `<ol>${m.replace(/<\/?oli>/g, m2 => m2.replace("oli","li"))}</ol>`);
+
+  // Paragraphs: wrap non-block lines
+  const blockTags = /^<(h[1-3]|ul|ol|li|blockquote|hr|pre|div)/;
+  html = html
+    .split("\n")
+    .map(line => {
+      const trimmed = line.trim();
+      if (!trimmed) return "";
+      if (blockTags.test(trimmed)) return trimmed;
+      return `<p>${trimmed}</p>`;
+    })
+    .join("\n");
+
+  return html;
+}
+
+// ── PDF export via browser print ────────────────────────────────────────────
+function exportToPDF(topic, reportHTML, sourcesCount, elapsed) {
+  const date = new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
+
+  const printContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Research Report – ${topic}</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;0,9..40,900;1,9..40,400&family=DM+Mono:wght@400;500&display=swap');
+
+    *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+
+    @page{
+      size: A4;
+      margin: 18mm 20mm 20mm 20mm;
+    }
+
+    body{
+      font-family: 'DM Sans', -apple-system, sans-serif;
+      font-size: 10.5pt;
+      line-height: 1.75;
+      color: #1a1a1a;
+      background: #fff;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    /* ── Cover header ── */
+    .cover-header{
+      border-bottom: 2px solid #0a0a0a;
+      padding-bottom: 16pt;
+      margin-bottom: 22pt;
+      page-break-after: avoid;
+    }
+    .brand-row{
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 18pt;
+    }
+    .brand-badge{
+      display: inline-flex;
+      align-items: center;
+      gap: 7pt;
+      font-size: 8pt;
+      font-family: 'DM Mono', monospace;
+      font-weight: 500;
+      color: #52525b;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+    .brand-dot{
+      width: 28pt;
+      height: 28pt;
+      border-radius: 7pt;
+      background: #0a0a0a;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 8pt;
+      font-weight: 700;
+      letter-spacing: .06em;
+      flex-shrink: 0;
+    }
+    .meta-row{
+      display: flex;
+      align-items: center;
+      gap: 12pt;
+      flex-wrap: wrap;
+    }
+    .meta-chip{
+      padding: 3pt 9pt;
+      border-radius: 100pt;
+      font-size: 7.5pt;
+      font-weight: 600;
+      font-family: 'DM Mono', monospace;
+      letter-spacing: .03em;
+      border: 1pt solid;
+    }
+    .chip-purple{ color:#6d28d9; background:#faf5ff; border-color:#ddd6fe; }
+    .chip-green{  color:#15803d; background:#f0fdf4; border-color:#bbf7d0; }
+    .chip-amber{  color:#b45309; background:#fffbeb; border-color:#fde68a; }
+
+    .report-title{
+      font-size: 21pt;
+      font-weight: 900;
+      letter-spacing: -.045em;
+      line-height: 1.15;
+      color: #0a0a0a;
+      margin: 12pt 0 8pt;
+    }
+    .title-rule{
+      height: 1pt;
+      background: linear-gradient(90deg, rgba(124,58,237,.3), #e8e8e8 40%, transparent);
+      margin-top: 14pt;
+    }
+
+    /* ── Report body ── */
+    h1{
+      font-size: 15pt;
+      font-weight: 800;
+      color: #0a0a0a;
+      letter-spacing: -.03em;
+      margin: 0 0 9pt;
+      padding-bottom: 8pt;
+      border-bottom: 1pt solid #e8e8e8;
+      page-break-after: avoid;
+    }
+    h2{
+      font-size: 12pt;
+      font-weight: 700;
+      color: #0a0a0a;
+      letter-spacing: -.022em;
+      margin: 22pt 0 7pt;
+      padding-bottom: 5pt;
+      border-bottom: 1pt solid #f0f0f0;
+      page-break-after: avoid;
+    }
+    h3{
+      font-size: 11pt;
+      font-weight: 700;
+      color: #111;
+      letter-spacing: -.018em;
+      margin: 14pt 0 5pt;
+      page-break-after: avoid;
+    }
+    p{
+      font-size: 10.5pt;
+      line-height: 1.80;
+      color: #2d2d2d;
+      margin-bottom: 10pt;
+    }
+    ul, ol{
+      padding-left: 16pt;
+      margin-bottom: 10pt;
+    }
+    li{
+      font-size: 10.5pt;
+      line-height: 1.76;
+      color: #2d2d2d;
+      margin-bottom: 3pt;
+    }
+    strong{ color: #0a0a0a; font-weight: 700; }
+    em{ font-style: italic; }
+    a{
+      color: #6d28d9;
+      text-decoration: none;
+      border-bottom: 0.5pt solid #c4b5fd;
+    }
+    blockquote{
+      border-left: 2pt solid #ddd6fe;
+      padding: 2pt 0 2pt 12pt;
+      color: #52525b;
+      font-style: italic;
+      margin: 10pt 0;
+    }
+    code{
+      font-family: 'DM Mono', monospace;
+      font-size: 8.5pt;
+      background: #f5f5f5;
+      padding: 1.5pt 4pt;
+      border-radius: 3pt;
+      color: #7c3aed;
+    }
+    hr{
+      border: none;
+      border-top: 1pt solid #f0f0f0;
+      margin: 18pt 0;
+    }
+
+    /* ── Footer ── */
+    .pdf-footer{
+      margin-top: 28pt;
+      padding-top: 10pt;
+      border-top: 1pt solid #e8e8e8;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .pdf-footer p{
+      font-size: 7.5pt;
+      color: #a1a1aa;
+      font-family: 'DM Mono', monospace;
+      margin: 0;
+    }
+
+    /* ── Print-specific ── */
+    @media print{
+      body{ background: #fff !important; }
+      a{ color: #6d28d9 !important; }
+      .no-print{ display: none !important; }
+      h2, h3{ page-break-after: avoid; }
+      p, li{ orphans: 3; widows: 3; }
+      blockquote{ page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Cover Header -->
+  <div class="cover-header">
+    <div class="brand-row">
+      <div class="brand-badge">
+        <span class="brand-dot">AR</span>
+        Agent Researcher &nbsp;·&nbsp; Groq · LangGraph · Tavily
+      </div>
+      <div style="font-family:'DM Mono',monospace;font-size:7.5pt;color:#a1a1aa;">${date}</div>
+    </div>
+
+    <div class="meta-row" style="margin-bottom:10pt;">
+      <span class="meta-chip chip-purple">✦ Research complete</span>
+      <span class="meta-chip chip-green">${sourcesCount} sources</span>
+      <span class="meta-chip chip-amber">${elapsed}s · 5 agents</span>
+    </div>
+
+    <h1 class="report-title">${topic.replace(/</g,"&lt;").replace(/>/g,"&gt;")}</h1>
+    <div class="title-rule"></div>
+  </div>
+
+  <!-- Report Body -->
+  <div class="report-body">
+    ${reportHTML}
+  </div>
+
+  <!-- Footer -->
+  <div class="pdf-footer">
+    <p>Generated by Agent Researcher &nbsp;·&nbsp; Groq · LangGraph · Tavily</p>
+    <p>${date} &nbsp;·&nbsp; ${sourcesCount} sources &nbsp;·&nbsp; ${elapsed}s</p>
+  </div>
+
+</body>
+</html>`;
+
+  // Open a new window, write the content, then trigger print
+  const win = window.open("", "_blank", "width=900,height=700");
+  if (!win) {
+    alert("Please allow pop-ups for this site to export the PDF.");
+    return;
+  }
+  win.document.open();
+  win.document.write(printContent);
+  win.document.close();
+
+  // Wait for fonts/styles to load before printing
+  win.onload = () => {
+    setTimeout(() => {
+      win.focus();
+      win.print();
+      // Close window after print dialog is dismissed
+      win.onafterprint = () => win.close();
+    }, 600);
+  };
+}
+
 export default function AppPage() {
   const navigate = useNavigate();
-  const [topic, setTopic]                   = useState("");
-  const [depth, setDepth]                   = useState("standard");
-  const [loading, setLoading]               = useState(false);
-  const [currentAgent, setCurrentAgent]     = useState(null);
+  const [topic, setTopic]                     = useState("");
+  const [depth, setDepth]                     = useState("standard");
+  const [loading, setLoading]                 = useState(false);
+  const [currentAgent, setCurrentAgent]       = useState(null);
   const [completedAgents, setCompletedAgents] = useState([]);
-  const [report, setReport]                 = useState(null);
-  const [sourcesCount, setSourcesCount]     = useState(0);
-  const [error, setError]                   = useState(null);
-  const [elapsed, setElapsed]               = useState(0);
-  const [startTime, setStartTime]           = useState(null);
-  const [copied, setCopied]                 = useState(false);
+  const [report, setReport]                   = useState(null);
+  const [sourcesCount, setSourcesCount]       = useState(0);
+  const [error, setError]                     = useState(null);
+  const [elapsed, setElapsed]                 = useState(0);
+  const [startTime, setStartTime]             = useState(null);
+  const [copied, setCopied]                   = useState(false);
+  const [pdfExporting, setPdfExporting]       = useState(false);
   const textareaRef = useRef(null);
   const reportRef   = useRef(null);
 
@@ -175,8 +490,24 @@ export default function AppPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  // ── PDF Export handler ───────────────────────────────────────────────────
+  const handleExportPDF = () => {
+    if (!report) return;
+    setPdfExporting(true);
+    try {
+      const renderedHTML = renderMarkdown(report);
+      exportToPDF(topic, renderedHTML, sourcesCount, elapsed);
+    } finally {
+      // Brief delay so button feedback is visible
+      setTimeout(() => setPdfExporting(false), 1200);
+    }
+  };
+
   const progress    = (completedAgents.length / AGENT_ORDER.length) * 100;
   const currentMeta = currentAgent ? AGENT_META[currentAgent] : null;
+
+  // Pre-rendered HTML for the report body
+  const reportHTML = report ? renderMarkdown(report) : "";
 
   return (
     <div style={{ background: "#f5f5f5", color: "#0a0a0a", minHeight: "100vh", fontFamily: "'DM Sans',-apple-system,sans-serif", overflowX: "hidden" }}>
@@ -227,6 +558,7 @@ export default function AppPage() {
           transition:border-color .17s,color .17s,transform .17s;letter-spacing:-.01em;
         }
         .action-btn:hover{border-color:#0a0a0a;color:#0a0a0a;transform:translateY(-1px)}
+        .action-btn:disabled{opacity:.5;cursor:not-allowed;transform:none!important}
         .suggestion-card{
           display:flex;align-items:flex-start;gap:11px;padding:14px 15px;
           border-radius:13px;background:#fff;border:1.5px solid #ebebeb;cursor:pointer;
@@ -241,7 +573,7 @@ export default function AppPage() {
         }
         .tag-chip:hover{border-color:#7c3aed;color:#7c3aed;background:#faf5ff}
 
-        /* Report typography */
+        /* ── Report typography (screen) ── */
         .rb h1{font-size:18px;font-weight:800;color:#0a0a0a;letter-spacing:-.03em;margin:0 0 10px;padding-bottom:10px;border-bottom:1px solid #f0f0f0}
         .rb h2{font-size:14.5px;font-weight:700;color:#0a0a0a;letter-spacing:-.022em;margin:28px 0 9px;padding-bottom:8px;border-bottom:1px solid #f4f4f4}
         .rb h3{font-size:13.5px;font-weight:700;color:#111;letter-spacing:-.018em;margin:18px 0 7px}
@@ -253,6 +585,7 @@ export default function AppPage() {
         .rb a:hover{border-bottom-color:#7c3aed}
         .rb blockquote{border-left:2px solid #ddd6fe;padding:2px 0 2px 14px;color:#6b7280;font-style:italic;margin:14px 0}
         .rb code{font-family:'DM Mono',monospace;font-size:12px;background:#f4f4f4;padding:2px 5px;border-radius:4px;color:#7c3aed}
+        .rb hr{border:none;border-top:1px solid #f0f0f0;margin:20px 0}
       `}</style>
 
       {/* ── NAV ── */}
@@ -356,7 +689,6 @@ export default function AppPage() {
               return (
                 <div key={key} className={`agent-row${isCurrent?" slide-in":""}`}
                   style={{ background:isCurrent?meta.bg:isDone?"rgba(34,197,94,.06)":"transparent", border:`1px solid ${isCurrent?meta.color+"32":isDone?"rgba(34,197,94,.16)":"transparent"}` }}>
-                  {/* Icon */}
                   <div style={{ width:"27px", height:"27px", borderRadius:"8px", flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center", background:isCurrent?meta.bg:isDone?"rgba(34,197,94,.09)":"#f5f5f5", border:`1px solid ${isCurrent?meta.color+"26":isDone?"rgba(34,197,94,.2)":"#ebebeb"}`, transition:"all .25s" }}>
                     {isCurrent
                       ? <div className="spin" style={{ width:"11px", height:"11px", borderRadius:"50%", border:`1.5px solid ${meta.color}28`, borderTopColor:meta.color }}/>
@@ -364,14 +696,12 @@ export default function AppPage() {
                         ? SVG.check("#22c55e", 11)
                         : meta.icon("#c8c8c8", 13)}
                   </div>
-                  {/* Text */}
                   <div style={{ flex:1, minWidth:0 }}>
                     <p style={{ fontSize:"11.5px", fontWeight:600, color:isCurrent?meta.color:isDone?"#16a34a":"#c4c4c4", letterSpacing:"-.01em", lineHeight:1.25 }}>{meta.label}</p>
                     <p style={{ fontSize:"9.5px", color:isCurrent?meta.color+"90":isDone?"#86efac":"#d4d4d4", fontFamily:"DM Mono,monospace", marginTop:"1px" }}>
                       {isCurrent?meta.desc:isDone?"Complete":"Waiting"}
                     </p>
                   </div>
-                  {/* Badge */}
                   <div style={{ width:"16px", height:"16px", borderRadius:"50%", background:isDone?"#22c55e":isCurrent?meta.color:"#f0f0f0", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, transition:"all .28s" }}>
                     {isDone
                       ? SVG.check("#fff", 9)
@@ -381,7 +711,7 @@ export default function AppPage() {
               );
             })}
 
-            {/* Progress */}
+            {/* Progress bar */}
             {(loading || completedAgents.length > 0) && (
               <div style={{ marginTop:"12px", padding:"11px 12px", borderRadius:"10px", background:"#fafafa", border:"1px solid #f0f0f0" }}>
                 <div style={{ display:"flex", justifyContent:"space-between", marginBottom:"7px" }}>
@@ -416,13 +746,10 @@ export default function AppPage() {
           {/* ─── Empty ─── */}
           {!loading && !report && !error && (
             <div className="fade-up" style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"60px 56px", minHeight:"calc(100vh - 54px)" }}>
-
-              {/* Orb icon */}
               <div style={{ position:"relative", marginBottom:"32px" }}>
                 <div style={{ width:"72px", height:"72px", borderRadius:"20px", background:"#fff", border:"1.5px solid #e8e8e8", display:"flex", alignItems:"center", justifyContent:"center", boxShadow:"0 8px 28px rgba(0,0,0,.07)" }}>
                   {SVG.sparkle("#7c3aed", 30)}
                 </div>
-                {/* corner dots */}
                 {[["#7c3aed","-9px","auto","auto","-9px"],["#2563eb","-9px","auto","-9px","auto"],["#059669","auto","-9px","auto","-9px"],["#d97706","auto","-9px","-9px","auto"]].map(([c,t,b,l,r],i) => (
                   <div key={i} style={{ position:"absolute", width:"8px", height:"8px", borderRadius:"50%", background:c, top:t, bottom:b, left:l, right:r, opacity:.55, border:"2px solid #f5f5f5" }}/>
                 ))}
@@ -433,7 +760,6 @@ export default function AppPage() {
                 Enter any topic and your 5-agent pipeline will search, read, verify and write a full report in ~90 seconds.
               </p>
 
-              {/* Pipeline strip */}
               <div style={{ display:"flex", alignItems:"center", gap:"0", marginBottom:"44px", background:"#fff", border:"1.5px solid #e8e8e8", padding:"11px 14px", borderRadius:"14px", boxShadow:"0 2px 10px rgba(0,0,0,.05)" }}>
                 {AGENT_ORDER.map((key, i) => {
                   const meta = AGENT_META[key];
@@ -453,7 +779,6 @@ export default function AppPage() {
                 })}
               </div>
 
-              {/* Suggestion grid */}
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"9px", width:"100%", maxWidth:"520px" }}>
                 {SUGGESTIONS.map((s, i) => {
                   const Icon = SUGGESTION_ICONS[i];
@@ -476,8 +801,6 @@ export default function AppPage() {
           {/* ─── Loading ─── */}
           {loading && !report && (
             <div className="fade-up" style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:"26px", padding:"60px 56px", minHeight:"calc(100vh - 54px)" }}>
-
-              {/* Orb */}
               <div style={{ position:"relative" }}>
                 <div className="orb-breath" style={{ width:"84px", height:"84px", borderRadius:"24px", background:"#fff", border:"1.5px solid #e8e8e8", display:"flex", alignItems:"center", justifyContent:"center", position:"relative", zIndex:1 }}>
                   {currentMeta && currentMeta.icon(currentMeta.color, 32)}
@@ -498,7 +821,6 @@ export default function AppPage() {
                 <span style={{ fontFamily:"DM Mono,monospace", fontSize:"10.5px", color:"#a1a1aa" }}>~90s total · {elapsed}s elapsed</span>
               </div>
 
-              {/* Progress */}
               <div style={{ width:"300px" }}>
                 <div style={{ height:"3px", borderRadius:"3px", background:"#e8e8e8", overflow:"hidden", marginBottom:"8px" }}>
                   <div style={{ height:"100%", borderRadius:"3px", background:"linear-gradient(90deg,#6d28d9,#a78bfa)", width:`${progress}%`, transition:"width 1s cubic-bezier(.16,1,.3,1)", boxShadow:"0 0 10px rgba(124,58,237,.5)" }}/>
@@ -509,7 +831,6 @@ export default function AppPage() {
                 </div>
               </div>
 
-              {/* Agent pills */}
               <div style={{ display:"flex", gap:"5px", flexWrap:"wrap", justifyContent:"center", maxWidth:"540px" }}>
                 {AGENT_ORDER.map(key => {
                   const meta    = AGENT_META[key];
@@ -524,7 +845,7 @@ export default function AppPage() {
                 })}
               </div>
 
-              {/* Skeleton */}
+              {/* Skeleton shimmer */}
               <div style={{ width:"100%", maxWidth:"600px", background:"#fff", border:"1.5px solid #e8e8e8", borderRadius:"16px", padding:"22px 26px", boxShadow:"0 2px 14px rgba(0,0,0,.05)" }}>
                 <div style={{ display:"flex", alignItems:"center", gap:"9px", marginBottom:"16px" }}>
                   <div style={{ width:"26px", height:"26px", borderRadius:"7px", background:"#f0f0f0", overflow:"hidden", position:"relative", flexShrink:0 }}>
@@ -580,15 +901,38 @@ export default function AppPage() {
                 </div>
 
                 <div style={{ display:"flex", alignItems:"center", gap:"6px" }}>
+                  {/* Meta chips */}
                   {[{l:`${sourcesCount} sources`,c:"#7c3aed",bg:"#faf5ff",b:"#ddd6fe"},{l:`${elapsed}s`,c:"#059669",bg:"#f0fdf4",b:"#dcfce7"},{l:"5 agents",c:"#d97706",bg:"#fffbeb",b:"#fde68a"}].map(b => (
                     <span key={b.l} style={{ padding:"4px 10px", borderRadius:"100px", fontSize:"10.5px", fontWeight:600, color:b.c, background:b.bg, border:`1.5px solid ${b.b}` }}>{b.l}</span>
                   ))}
                   <div style={{ width:"1px", height:"22px", background:"#ebebeb", margin:"0 2px" }}/>
+
+                  {/* Copy button */}
                   <button className="action-btn" onClick={handleCopy}
                     style={{ background:copied?"#f0fdf4":"#fff", borderColor:copied?"#dcfce7":"#e5e5e5", color:copied?"#16a34a":"#52525b" }}>
                     {copied ? SVG.check("#16a34a",12) : SVG.copy()}
                     {copied ? "Copied!" : "Copy"}
                   </button>
+
+                  {/* ── PDF Export button ── */}
+                  <button
+                    className="action-btn"
+                    onClick={handleExportPDF}
+                    disabled={pdfExporting}
+                    style={{
+                      background: pdfExporting ? "#faf5ff" : "#fff",
+                      borderColor: pdfExporting ? "#ddd6fe" : "#e5e5e5",
+                      color: pdfExporting ? "#7c3aed" : "#52525b",
+                    }}
+                    title="Export as PDF (opens print dialog)"
+                  >
+                    {pdfExporting
+                      ? <div className="spin" style={{ width:"11px", height:"11px", borderRadius:"50%", border:"1.5px solid #ddd6fe", borderTopColor:"#7c3aed" }}/>
+                      : SVG.pdf()}
+                    {pdfExporting ? "Preparing…" : "Export PDF"}
+                  </button>
+
+                  {/* New research */}
                   <button className="action-btn" onClick={handleReset}>
                     {SVG.reset()} New
                   </button>
@@ -609,8 +953,8 @@ export default function AppPage() {
                 {/* Gradient rule */}
                 <div style={{ height:"1px", background:"linear-gradient(90deg,rgba(124,58,237,.22),#e8e8e8 38%,transparent)", marginBottom:"34px" }}/>
 
-                {/* Content */}
-                <div className="rb" dangerouslySetInnerHTML={{ __html: report.replace(/\n/g,"<br/>").replace(/#{1,3} (.+)/g,(_,t)=>`<h2>${t}</h2>`) }}/>
+                {/* Report content — properly rendered markdown */}
+                <div className="rb" dangerouslySetInnerHTML={{ __html: reportHTML }}/>
               </div>
             </div>
           )}
