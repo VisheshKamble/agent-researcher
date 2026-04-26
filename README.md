@@ -113,6 +113,11 @@ Or with Docker Compose:
 - Python dependencies: See `requirements.txt`
 - Node.js dependencies: See `agent-researcher-ui/package.json`
 
+## Live Demo
+
+- **Backend deployed on Render:** [https://agent-researcher-8sca.onrender.com](https://agent-researcher-8sca.onrender.com)
+- **Frontend deployed on Netlify:** [https://agentresearcher.netlify.app](https://agentresearcher.netlify.app)
+
 ## License
 
 This project is provided for research and educational purposes.
