@@ -38,6 +38,11 @@ nosetests.xml
 coverage.xml
 *.cover
 .hypothesis/
+
+# Node and npm artifacts (for JS/React projects in subfolders)
+node_modules/
+package-lock.json
+package.json
 .pytest_cache/
 
 # Jupyter Notebook

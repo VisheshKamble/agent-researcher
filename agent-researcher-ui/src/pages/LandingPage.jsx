@@ -211,7 +211,7 @@ export default function LandingPage() {
               <div style={{ padding:"11px 16px", background:"#f3f3f3", borderBottom:"1px solid #ebebeb", display:"flex", alignItems:"center", gap:"7px" }}>
                 {["#ff5f57","#ffbd2e","#28c840"].map(c=><div key={c} style={{ width:"11px", height:"11px", borderRadius:"50%", background:c }}/>)}
                 <div style={{ flex:1, height:"21px", borderRadius:"6px", background:"#e8e8e8", marginLeft:"10px", display:"flex", alignItems:"center", paddingLeft:"10px" }}>
-                  <span style={{ fontSize:"10.5px", color:"#9ca3af", fontFamily:"DM Mono,monospace" }}>localhost:5173 — Agent Researcher</span>
+                  <span style={{ fontSize:"10.5px", color:"#9ca3af", fontFamily:"DM Mono,monospace" }}>Agentic AI - Agent Researcher</span>
                 </div>
               </div>
               {/* Body */}
